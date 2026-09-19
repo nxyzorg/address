@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version, for example v2.0.6
+        description: Release version, for example v2.0.8
         required: true
-        default: v2.0.6
+        default: v2.0.8
 
 permissions:
   contents: read
@@ -60,6 +60,8 @@ jobs:
             version="${GITHUB_REF_NAME}"
           fi
           [[ "$version" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+          package_version=$(node -p "require('./package.json').version")
+          [[ "$version" == "v$package_version" ]]
           echo "value=$version" >> "$GITHUB_OUTPUT"
       - name: Reject duplicate release
         shell: bash
@@ -112,19 +114,22 @@ jobs:
         run: |
           version='${{ steps.version.outputs.value }}'
           cat > release/RELEASE_NOTES.md <<'NOTES'
-          ### Deployment
-          - Added a single-file Docker Compose deployment: download `docker-compose.yml` and run `docker compose up -d` without cloning the repository or running an initialization script.
-          - Added an idempotent bootstrap service that generates and persists PostgreSQL, encryption, synchronization, and broker secrets.
-          - Preserved existing `config/secrets` installations and hardened the production Compose overlay so PostgreSQL and legacy secrets are not recreated during blue-green upgrades.
+          ### Address data and synchronization
+          - Restored recoverable addresses through fair, bounded translation retries and cache recovery while retaining source records when translation fails.
+          - Added support for genuine street-level addresses outside China, marked with `matchLevel: street`; missing house and unit fields remain empty. China retains its residential address contract.
+          - Corrected publication indexes, administrative assignments, country counts, and coverage reporting while preserving country, coordinate, source, language, and identifier validation.
+          - Unified administrative node IDs and per-node targets across imports, country completion checks, and the China coverage tracker, with compatibility for existing settings.
 
-          ### Access and security
-          - Set the first-run administrator password to `admin`, disabled the frontend password by default, and require the default administrator password to be changed before other administrator features are available.
-          - Added optional first-run administrator and frontend password settings directly in `docker-compose.yml`.
-          - Added validated multi-origin CORS support while retaining backward compatibility with the previous single-origin setting.
+          ### Translation and credentials
+          - Added OpenAI-compatible translation with live model discovery, complete searchable model lists, manual model entry, normalized endpoint URLs, and explicit low reasoning by default.
+          - Added independent API-key priorities for OpenAI-compatible, DeepL, and Youdao translation, plus configurable priority for keyless Google translation.
+          - Made initial online imports honor the same key priorities, disabled states, prompts, and broker accounting as translation recovery.
+          - Fixed stale address translation caches, expired cooldown handling, and HTTP-date Retry-After parsing. Full translation prompts preserve address facts and identifiers; one-time DeepL rewards are not replenished locally.
 
           ### Documentation and verification
-          - Updated the English, Simplified Chinese, and Traditional Chinese README, API, deployment, backup, and restore instructions for the one-file deployment flow.
-          - Added bootstrap persistence, legacy-secret conflict, forced-password-change, multi-origin, and production deployment regression coverage.
+          - Improved responsive administrator forms, the model picker, translation controls, and hierarchical coverage navigation.
+          - Updated the English, Simplified Chinese, and Traditional Chinese API/key guides and all country strategy documents.
+          - Verified 1,402 JavaScript/TypeScript tests, 105 Python tests, type checks, builds, PostgreSQL migration fixtures, and 500 live address-contract samples per supported country.
           NOTES
       - name: Publish stable GitHub release
         shell: bash
